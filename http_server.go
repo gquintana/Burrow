@@ -22,6 +22,7 @@ import (
 	"time"
 	"fmt"
 	log "github.com/cihub/seelog"
+  "crypto/tls"
 )
 
 type HttpServer struct {
@@ -54,6 +55,20 @@ func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	return tc, nil
 }
 
+func newHttpListener(listenAddress string, config *BurrowConfig) (net.Listener, error) {
+  scheme, host, port := SplitHttpListen(listenAddress)
+  listen, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+  listen = tcpKeepAliveListener{listen.(*net.TCPListener)}
+  if scheme == "https" {
+    tlsConfig, err := NewTLSConfig(config)
+    if err != nil {
+      return nil, err
+    }
+    listen = tls.NewListener(listen, tlsConfig)
+  }
+  return listen, err
+}
+
 func NewHttpServer(app *ApplicationContext) (*HttpServer, error) {
 	server := &HttpServer{
 		app: app,
@@ -81,9 +96,8 @@ func NewHttpServer(app *ApplicationContext) (*HttpServer, error) {
 	// server.mux.Handle("/v2/zookeeper/", appHandler{server.app, userChecker, handleZookeeper})
 
 	listeners := make([]net.Listener, 0, len(server.app.Config.Httpserver.Listen))
-
 	for _, listenAddress := range server.app.Config.Httpserver.Listen {
-		ln, err := net.Listen("tcp", listenAddress)
+    ln, err := newHttpListener(listenAddress, server.app.Config)
 		if err != nil {
 			for _, listenerToClose := range listeners {
 				closeErr := listenerToClose.Close()
@@ -93,7 +107,7 @@ func NewHttpServer(app *ApplicationContext) (*HttpServer, error) {
 			}
 			return nil, err
 		}
-		listeners = append(listeners, tcpKeepAliveListener{ln.(*net.TCPListener)})
+		listeners = append(listeners, ln)
 	}
 
 	httpServer := &http.Server{Handler: server.mux}

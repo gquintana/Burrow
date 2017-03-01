@@ -12,9 +12,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
-	"io/ioutil"
 	"encoding/binary"
 	"errors"
 	"github.com/Shopify/sarama"
@@ -51,26 +48,14 @@ func NewKafkaClient(app *ApplicationContext, cluster string) (*KafkaClient, erro
 	profile := app.Config.Clientprofile[app.Config.Kafka[cluster].Clientprofile]
 	clientConfig.ClientID = profile.ClientID
 	clientConfig.Net.TLS.Enable = profile.TLS
-	if profile.TLSCertFilePath == "" || profile.TLSKeyFilePath == "" || profile.TLSCAFilePath == "" {
-		clientConfig.Net.TLS.Config = &tls.Config{}
-	} else {
-		caCert, err := ioutil.ReadFile(profile.TLSCAFilePath)
-		if err != nil {
-			return nil, err
-		}
-		cert, err := tls.LoadX509KeyPair(profile.TLSCertFilePath, profile.TLSKeyFilePath)
-		if err != nil {
-			return nil, err
-		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		clientConfig.Net.TLS.Config = &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			RootCAs: caCertPool,
-		}
-		clientConfig.Net.TLS.Config.BuildNameToCertificate()
-	}
-	clientConfig.Net.TLS.Config.InsecureSkipVerify = profile.TLSNoVerify
+  if clientConfig.Net.TLS.Enable {
+	  tlsConfig, err := NewTLSConfig(app.Config)
+    if err != nil {
+      return nil, err
+    }
+    clientConfig.Net.TLS.Config = tlsConfig
+	  clientConfig.Net.TLS.Config.InsecureSkipVerify = profile.TLSNoVerify
+  }
 
 	sclient, err := sarama.NewClient(app.Config.Kafka[cluster].Brokers, clientConfig)
 	if err != nil {
