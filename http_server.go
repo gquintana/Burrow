@@ -22,7 +22,7 @@ import (
 	"time"
 	"fmt"
 	log "github.com/cihub/seelog"
-  "crypto/tls"
+	"crypto/tls"
 )
 
 type HttpServer struct {
@@ -83,6 +83,7 @@ func NewHttpServer(app *ApplicationContext) (*HttpServer, error) {
 
 	// User checker
 	userChecker, err := security.NewUserChecker(app.Config.Httpserver.BasicAuthEnabled,
+		app.Config.Httpserver.BasicAuthRealmName,
 		app.Config.Httpserver.BasicAuthUserConfigFile,
 		app.Config.Httpserver.BasicAuthAnonymousRole)
 	if err != nil {
@@ -131,7 +132,7 @@ func (ah appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if !authorized {
 			w.Header().Set("WWW-Authenticate", fmt.Sprintf("Basic realm=\"%s\"", ah.userChecker.RealmName))
-			http.Error(w, "{\"error\":true,\"message\":\"request method not supported\",\"result\":{}}", http.StatusUnauthorized)
+			http.Error(w, "{\"error\":true,\"message\":\"request not authorized\",\"result\":{}}", http.StatusForbidden)
 			return
 		}
 	}
