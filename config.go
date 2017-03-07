@@ -413,6 +413,16 @@ func ValidateConfig(app *ApplicationContext) error {
 				errs = append(errs, "Basic Auth Users File invalid")
 			}
 		}
+		if app.Config.Httpserver.BasicAuthEnabled {
+			if app.Config.Httpserver.BasicAuthAnonymousRole == "" && app.Config.Httpserver.BasicAuthUserConfigFile == "" {
+				errs = append(errs, "Basic Auth Enabled, either Anonymous Role or User Config must be configured")
+			}
+			if app.Config.Httpserver.BasicAuthUserConfigFile != "" {
+				if _, err := os.Stat(app.Config.Httpserver.BasicAuthUserConfigFile); os.IsNotExist(err) {
+					errs = append(errs, "Basic Auth Users File not found")
+				}
+			}
+		}
 	}
 
 	// Notify
