@@ -33,7 +33,7 @@ type HttpServer struct {
 type appHandler struct {
 	app     *ApplicationContext
 	userChecker *security.UserChecker
-	handler func(*ApplicationContext, http.ResponseWriter, *http.Request) (int, string)
+	handler func(*ApplicationContext, http.ResponseWriter, *http.Request) int
 }
 
 
@@ -138,18 +138,10 @@ func (ah appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case r.Method == "GET":
-		if status, err := ah.handler(ah.app, w, r); status != 200 {
-			http.Error(w, err, status)
-		} else {
-			io.WriteString(w, err)
-		}
+		ah.handler(ah.app, w, r)
 	case r.Method == "DELETE":
 		// Later we can add authentication here
-		if status, err := ah.handler(ah.app, w, r); status != 200 {
-			http.Error(w, err, status)
-		} else {
-			io.WriteString(w, err)
-		}
+		ah.handler(ah.app, w, r)
 	default:
 		http.Error(w, "{\"error\":true,\"message\":\"request method not supported\",\"result\":{}}", http.StatusMethodNotAllowed)
 	}
@@ -233,16 +225,17 @@ func makeRequestInfo(r *http.Request) HTTPResponseRequestInfo {
 	}
 }
 
-func writeJSONResponse(w http.ResponseWriter, status int, value  interface{}) (int, string) {
+func writeJSONResponse(w http.ResponseWriter, status int, value  interface{}) int {
 	jsonStr, err := json.Marshal(value)
 	if err != nil {
-		return http.StatusInternalServerError, "{\"error\":true,\"message\":\"could not encode JSON\",\"result\":{}}"
+		http.Error(w, "{\"error\":true,\"message\":\"could not encode JSON\",\"result\":{}}", http.StatusInternalServerError)
 	}
+	w.WriteHeader(status)
 	w.Write(jsonStr)
-	return status, ""
+	return status
 }
 
-func makeErrorResponse(errValue int, message string, w http.ResponseWriter, r *http.Request) (int, string) {
+func makeErrorResponse(errValue int, message string, w http.ResponseWriter, r *http.Request) int {
 	rv := HTTPResponseError{
 		Error:   true,
 		Message: message,
@@ -252,7 +245,7 @@ func makeErrorResponse(errValue int, message string, w http.ResponseWriter, r *h
 	return writeJSONResponse(w, errValue, rv)
 }
 
-func handleClusterList(app *ApplicationContext, w http.ResponseWriter, r *http.Request) (int, string) {
+func handleClusterList(app *ApplicationContext, w http.ResponseWriter, r *http.Request) int {
 	if r.Method != "GET" {
 		return makeErrorResponse(http.StatusMethodNotAllowed, "request method not supported", w, r)
 	}
@@ -273,7 +266,7 @@ func handleClusterList(app *ApplicationContext, w http.ResponseWriter, r *http.R
 }
 
 // This is a router for all requests that operate against Kafka clusters (/v2/kafka/...)
-func handleKafka(app *ApplicationContext, w http.ResponseWriter, r *http.Request) (int, string) {
+func handleKafka(app *ApplicationContext, w http.ResponseWriter, r *http.Request) int {
 	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, app.Config.Httpserver.PathPrefix), "/")
 	if _, ok := app.Config.Kafka[pathParts[2]]; !ok {
 		return makeErrorResponse(http.StatusNotFound, "cluster not found", w, r)
@@ -336,7 +329,7 @@ func handleKafka(app *ApplicationContext, w http.ResponseWriter, r *http.Request
 	return makeErrorResponse(http.StatusNotFound, "unknown API call", w, r)
 }
 
-func handleClusterDetail(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string) (int, string) {
+func handleClusterDetail(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string) int {
 	// Clearly show the root path in ZK (which we have a blank for after config)
 	zkPath := app.Config.Kafka[cluster].ZookeeperPath
 	if zkPath == "" {
@@ -360,7 +353,7 @@ func handleClusterDetail(app *ApplicationContext, w http.ResponseWriter, r *http
 	})
 }
 
-func handleConsumerList(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string) (int, string) {
+func handleConsumerList(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string) int {
 	storageRequest := &RequestConsumerList{Result: make(chan []string), Cluster: cluster}
 	app.Storage.requestChannel <- storageRequest
 
@@ -374,7 +367,7 @@ func handleConsumerList(app *ApplicationContext, w http.ResponseWriter, r *http.
 	})
 }
 
-func handleConsumerTopicList(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, group string) (int, string) {
+func handleConsumerTopicList(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, group string) int {
 	storageRequest := &RequestTopicList{Result: make(chan *ResponseTopicList), Cluster: cluster, Group: group}
 	app.Storage.requestChannel <- storageRequest
 	result := <-storageRequest.Result
@@ -393,7 +386,7 @@ func handleConsumerTopicList(app *ApplicationContext, w http.ResponseWriter, r *
 	})
 }
 
-func handleConsumerTopicDetail(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, group string, topic string) (int, string) {
+func handleConsumerTopicDetail(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, group string, topic string) int {
 	storageRequest := &RequestOffsets{Result: make(chan *ResponseOffsets), Cluster: cluster, Topic: topic, Group: group}
 	app.Storage.requestChannel <- storageRequest
 	result := <-storageRequest.Result
@@ -416,7 +409,7 @@ func handleConsumerTopicDetail(app *ApplicationContext, w http.ResponseWriter, r
 	})
 }
 
-func handleConsumerStatus(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, group string, showall bool) (int, string) {
+func handleConsumerStatus(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, group string, showall bool) int {
 	storageRequest := &RequestConsumerStatus{Result: make(chan *protocol.ConsumerGroupStatus), Cluster: cluster, Group: group, Showall: showall}
 	app.Storage.requestChannel <- storageRequest
 	result := <-storageRequest.Result
@@ -435,7 +428,7 @@ func handleConsumerStatus(app *ApplicationContext, w http.ResponseWriter, r *htt
 	})
 }
 
-func handleConsumerDrop(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, group string) (int, string) {
+func handleConsumerDrop(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, group string) int {
 	storageRequest := &RequestConsumerDrop{Result: make(chan protocol.StatusConstant), Cluster: cluster, Group: group}
 	app.Storage.requestChannel <- storageRequest
 	result := <-storageRequest.Result
@@ -453,7 +446,7 @@ func handleConsumerDrop(app *ApplicationContext, w http.ResponseWriter, r *http.
 	})
 }
 
-func handleBrokerTopicList(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string) (int, string) {
+func handleBrokerTopicList(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string) int {
 	storageRequest := &RequestTopicList{Result: make(chan *ResponseTopicList), Cluster: cluster}
 	app.Storage.requestChannel <- storageRequest
 	result := <-storageRequest.Result
@@ -468,7 +461,7 @@ func handleBrokerTopicList(app *ApplicationContext, w http.ResponseWriter, r *ht
 	})
 }
 
-func handleBrokerTopicDetail(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, topic string) (int, string) {
+func handleBrokerTopicDetail(app *ApplicationContext, w http.ResponseWriter, r *http.Request, cluster string, topic string) int {
 	storageRequest := &RequestOffsets{Result: make(chan *ResponseOffsets), Cluster: cluster, Topic: topic}
 	app.Storage.requestChannel <- storageRequest
 	result := <-storageRequest.Result
