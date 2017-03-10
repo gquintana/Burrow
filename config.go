@@ -27,6 +27,9 @@ import (
 type ClientProfile struct {
 	ClientID    string   `gcfg:"client-id"`
 	TLS         string   `gcfg:"tls"`
+	SASLEnabled     bool    `gcfg:"sasl-enabled"`
+	SASLUsername    string  `gcfg:"sasl-username"`
+	SASLPassword    string  `gcfg:"sasl-password"`
 }
 // TLS Configuration
 type TLSConfig struct {

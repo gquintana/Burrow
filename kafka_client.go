@@ -55,7 +55,11 @@ func NewKafkaClient(app *ApplicationContext, cluster string) (*KafkaClient, erro
 		}
 		clientConfig.Net.TLS.Config = tlsConfig
 	}
-
+	if profile.SASLEnabled {
+		clientConfig.Net.SASL.Enable=true
+		clientConfig.Net.SASL.User=profile.SASLUsername
+		clientConfig.Net.SASL.Password=profile.SASLPassword
+	}
 	sclient, err := sarama.NewClient(app.Config.Kafka[cluster].Brokers, clientConfig)
 	if err != nil {
 		return nil, err
