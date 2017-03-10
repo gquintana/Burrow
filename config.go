@@ -82,10 +82,11 @@ type BurrowConfig struct {
 	}
 	Tls map[string]*TLSConfig
 	Httpserver struct {
-		Enable bool `gcfg:"server"`
-		Port   int  `gcfg:"port"`
+		Enable     bool     `gcfg:"server"`
+		Port       int      `gcfg:"port"`
+		Listen     []string `gcfg:"listen"`
+		PathPrefix string   `gcfg:"path-prefix"`
 		TLS		 string   `gcfg:"tls"`
-		Listen []string `gcfg:"listen"`
 		BasicAuthEnabled bool 					`gcfg:"basic-auth-enabled"`
 		BasicAuthAnonymousRole string		`gcfg:"basic-auth-anonymous-role"`
 		BasicAuthUserConfigFile string  `gcfg:"basic-auth-user-config-file"`
@@ -423,6 +424,15 @@ func ValidateConfig(app *ApplicationContext) error {
 				}
 			}
 		}
+	  //  PathPrefix must be of the form /something/ or / alone
+		pathPrefix := app.Config.Httpserver.PathPrefix
+		if !strings.HasPrefix(pathPrefix,"/") {
+			pathPrefix = "/" + pathPrefix
+		}
+		if !strings.HasSuffix(pathPrefix,"/") {
+			pathPrefix = pathPrefix + "/"
+		}
+		app.Config.Httpserver.PathPrefix = pathPrefix
 	}
 
 	// Notify

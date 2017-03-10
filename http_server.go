@@ -76,10 +76,10 @@ func NewHttpServer(app *ApplicationContext) (*HttpServer, error) {
 	}
 
 	// This is a catchall for undefined URLs
-	server.mux.HandleFunc("/", handleDefault)
+	server.mux.HandleFunc(server.app.Config.Httpserver.PathPrefix, handleDefault)
 
 	// This is a healthcheck URL. Please don't change it
-	server.mux.HandleFunc("/burrow/admin", handleAdmin)
+	server.mux.HandleFunc(server.app.Config.Httpserver.PathPrefix + "burrow/admin", handleAdmin)
 
 	// User checker
 	userChecker, err := security.NewUserChecker(app.Config.Httpserver.BasicAuthEnabled,
@@ -91,10 +91,10 @@ func NewHttpServer(app *ApplicationContext) (*HttpServer, error) {
 	}
 
 	// All valid paths go here. Make sure they use the right handler
-	server.mux.Handle("/v2/kafka", appHandler{server.app, userChecker, handleClusterList})
-	server.mux.Handle("/v2/kafka/", appHandler{server.app, userChecker, handleKafka})
-	server.mux.Handle("/v2/zookeeper", appHandler{server.app, userChecker, handleClusterList})
-	// server.mux.Handle("/v2/zookeeper/", appHandler{server.app, userChecker, handleZookeeper})
+	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "v2/kafka", appHandler{server.app, userChecker, handleClusterList})
+	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "v2/kafka/", appHandler{server.app, userChecker, handleKafka})
+	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "v2/zookeeper", appHandler{server.app, userChecker, handleClusterList})
+	// server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "/v2/zookeeper/", appHandler{server.app, userChecker, handleZookeeper})
 
 	listeners := make([]net.Listener, 0, len(server.app.Config.Httpserver.Listen))
 	for _, listenAddress := range server.app.Config.Httpserver.Listen {
@@ -276,7 +276,7 @@ func handleClusterList(app *ApplicationContext, w http.ResponseWriter, r *http.R
 
 // This is a router for all requests that operate against Kafka clusters (/v2/kafka/...)
 func handleKafka(app *ApplicationContext, w http.ResponseWriter, r *http.Request) (int, string) {
-	pathParts := strings.Split(r.URL.Path[1:], "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, app.Config.Httpserver.PathPrefix), "/")
 	if _, ok := app.Config.Kafka[pathParts[2]]; !ok {
 		return makeErrorResponse(http.StatusNotFound, "cluster not found", w, r)
 	}
