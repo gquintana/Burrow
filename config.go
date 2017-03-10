@@ -76,9 +76,10 @@ type BurrowConfig struct {
 		StormGroupRefresh int64 `gcfg:"storm-group-refresh"`
 	}
 	Httpserver struct {
-		Enable bool `gcfg:"server"`
-		Port   int  `gcfg:"port"`
-		Listen []string `gcfg:"listen"`
+		Enable     bool     `gcfg:"server"`
+		Port       int      `gcfg:"port"`
+		Listen     []string `gcfg:"listen"`
+		PathPrefix string   `gcfg:"path-prefix"`
 	}
 	Notify struct {
 		Interval int64 `gcfg:"interval"`
@@ -349,6 +350,15 @@ func ValidateConfig(app *ApplicationContext) error {
 				errs = append(errs, "Either HTTP server port or listen can be specified, but not both")
 			}
 		}
+	  //  PathPrefix must be of the form /something/ or / alone
+		pathPrefix := app.Config.Httpserver.PathPrefix
+		if !strings.HasPrefix(pathPrefix,"/") {
+			pathPrefix = "/" + pathPrefix
+		}
+		if !strings.HasSuffix(pathPrefix,"/") {
+			pathPrefix = pathPrefix + "/"
+		}
+		app.Config.Httpserver.PathPrefix = pathPrefix
 	}
 
 	// Notify
