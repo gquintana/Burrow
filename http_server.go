@@ -85,15 +85,16 @@ func NewHttpServer(app *ApplicationContext) (*HttpServer, error) {
 	userChecker, err := security.NewUserChecker(app.Config.Httpserver.BasicAuthEnabled,
 		app.Config.Httpserver.BasicAuthRealmName,
 		app.Config.Httpserver.BasicAuthUserConfigFile,
+		app.Config.Httpserver.BasicAuthUserPasswordHash,
 		app.Config.Httpserver.BasicAuthAnonymousRole)
 	if err != nil {
 		return nil, err
 	}
 
 	// All valid paths go here. Make sure they use the right handler
-	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "v2/kafka", appHandler{server.app, userChecker, handleClusterList})
-	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "v2/kafka/", appHandler{server.app, userChecker, handleKafka})
-	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "v2/zookeeper", appHandler{server.app, userChecker, handleClusterList})
+	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "/v2/kafka", appHandler{server.app, userChecker, handleClusterList})
+	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "/v2/kafka/", appHandler{server.app, userChecker, handleKafka})
+	server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "/v2/zookeeper", appHandler{server.app, userChecker, handleClusterList})
 	// server.mux.Handle(server.app.Config.Httpserver.PathPrefix + "/v2/zookeeper/", appHandler{server.app, userChecker, handleZookeeper})
 
 	listeners := make([]net.Listener, 0, len(server.app.Config.Httpserver.Listen))
