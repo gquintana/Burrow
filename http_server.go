@@ -66,6 +66,7 @@ func newHttpListener(listenAddress string, config *BurrowConfig) (net.Listener, 
 		}
 		listen = tls.NewListener(listen, tlsConfig)
 	}
+	log.Infof("Listening on %s://%s:%v%s", scheme, host, port, config.Httpserver.PathPrefix)
 	return listen, err
 }
 
